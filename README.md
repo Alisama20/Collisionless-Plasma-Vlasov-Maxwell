@@ -14,7 +14,6 @@ The system is governed by the **Vlasov-Maxwell equations**
 $$
 \frac{\partial f}{\partial t} + \frac{p}{\gamma}\frac{\partial f}{\partial x}
 + F(t,x)\frac{\partial f}{\partial p} = 0
-\quad \text{(Vlasov)}
 $$
 
 $$
@@ -280,27 +279,10 @@ These instabilities occur in:
 - **Accretion disk jets** (black holes, active galactic nuclei)
 - **Laser-plasma interactions** (inertial confinement fusion, laboratory astrophysics)
 
----
-
 ## Author
 
-**A. S. Amari**
+**A. S. Amari Rabah**
 
-Developed as the master's thesis project for the **Master's Degree in Physics and Mathematics**,
-Faculty of Sciences, University of Granada, Spain.
-
-Academic Year 2025/2026.
-
-Email: [alisalemstd@gmail.com](mailto:alisalemstd@gmail.com)
-
----
-
-## License
-
-MIT License — see [LICENSE](LICENSE) file for details.
-
-**Citations:** If you use this code or thesis material, please cite:
-```
-Amari, A. S. (2025). "PDEs of Transport in Kinetic Theory and Fluid Mechanics: 
-Vlasov-Maxwell." Master's Thesis, University of Granada.
-```
+Developed as part of the coursework for *Transport Pdes in Kinetic Theory and Fluid Mechanics* —
+Master's Degree in Physics and Mathematics (Fisymat),
+University of Granada, Spain.
