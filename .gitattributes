@@ -1,0 +1,17 @@
+* text=auto
+
+# Mark LaTeX files as documentation
+*.tex linguist-documentation
+*.bib linguist-documentation
+*.aux linguist-documentation
+*.log linguist-documentation
+
+# Mark Python files as the primary language
+*.py linguist-language=Python
+
+# Ensure PDFs are binary
+*.pdf binary
+*.png binary
+
+# Linguist overrides
+latex/** linguist-vendored=false
