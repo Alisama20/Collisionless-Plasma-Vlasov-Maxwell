@@ -1,208 +1,306 @@
-# Vlasov--Maxwell: Semi-Lagrangian and Monte Carlo Numerical Methods
+# Vlasov-Maxwell: Semi-Lagrangian and Particle-in-Cell Methods
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+High-order numerical simulation of collisionless plasma dynamics via **semi-Lagrangian schemes** and **Particle-in-Cell (PIC) Monte Carlo methods**. Two implementations demonstrate complementary approaches to solving the Vlasov-Maxwell system.
 
-A comprehensive study of numerical methods for solving the Vlasov--Maxwell system in kinetic plasma physics, combining **semi-Lagrangian grid-based methods** and **Particle-in-Cell (PIC) Monte Carlo approaches**.
+> **Note:** The semi-Lagrangian scheme requires characteristic curves to be well-defined.
+> The model focuses on collisionless plasmas; collisional effects are not included.
 
-## Overview
+---
 
-This project implements advanced numerical solvers for the coupled Vlasov--Maxwell equations governing collisionless plasma dynamics. The work includes:
+## Physical Model
 
-- **Theoretical framework**: existence, uniqueness, and convergence analysis of semi-Lagrangian schemes
-- **Semi-Lagrangian solver (1D1V and 1D2V)**: high-order Strang splitting with cubic Catmull--Rom interpolation
-- **PIC/Monte Carlo solver (1D1V)**: stochastic particle-in-cell method with CIC deposition and FFT Poisson solver
-- **Physical applications**: two-stream instability and Weibel instability in relativistic/quasi-relativistic plasma
+The system is governed by the **Vlasov-Maxwell equations**
+
+$$
+\frac{\partial f}{\partial t} + \frac{p}{\gamma}\frac{\partial f}{\partial x}
++ F(t,x)\frac{\partial f}{\partial p} = 0
+\quad \text{(Vlasov)}
+$$
+
+$$
+\frac{\partial^2 A}{\partial t^2} - \frac{\partial^2 A}{\partial x^2} = -J(t,x)
+\quad \text{(Wave equation)}
+$$
+
+$$
+\frac{\partial E}{\partial x} = \rho(t,x) - 1
+\quad \text{(Poisson)}
+$$
+
+| Symbol | Meaning |
+|--------|---------|
+| $f(t,x,p)$ | phase-space distribution of electrons |
+| $\gamma = \sqrt{1 + p^2}$ | relativistic Lorentz factor |
+| $F(t,x)$ | Lorentz force on particle |
+| $A(t,x)$ | transverse vector potential |
+| $\rho(t,x)$ | electron charge density |
+| $J(t,x)$ | electron current density |
+
+The system captures **electromagnetic wave coupling** absent in purely electrostatic models,
+enabling study of instabilities like Weibel (magnetic) and two-stream (electrostatic).
+
+---
+
+## Methods
+
+### Semi-Lagrangian Scheme — 1D1V & 1D2V
+
+**Principle:** Transport $f$ backward along characteristics in phase space, then interpolate.
+
+The method uses **Strang splitting** (order $\mathcal{O}(\Delta t^2)$):
+
+1. **Half-step advection in momentum** via cubic Catmull-Rom interpolation
+2. **Full-step advection in space** using periodic boundary conditions  
+3. **Update fields** (Poisson solver via FFT, wave equation via Störmer-Verlet)
+4. **Half-step advection in momentum** with centered fields (symmetric palindrome)
+
+**Advantages:**
+- CFL-free: stable for any $\Delta t$ (no time-step restriction)
+- Preserves compact support and positivity
+- High accuracy in phase space via cubic interpolation
+
+**Disadvantages:**
+- Requires fine spatial grids for smooth interpolation
+- More complex than finite-difference schemes
+
+### Particle-in-Cell (PIC) Monte Carlo — 1D1V
+
+**Principle:** Represent $f$ as weighted **macroparticles**; compute fields on fixed grid.
+
+$$f(t,x,p) \approx \sum_{p=1}^{N} w_p \, \delta(x - x_p(t)) \, \delta(p - p_p(t))$$
+
+Each time step:
+
+1. **Deposit charge** — CIC (Cloud-In-Cell) weighting to grid
+2. **Solve for $E$** — FFT-based Poisson solver  
+3. **Interpolate $E$** back to particle positions (CIC)
+4. **Push particles** — Leapfrog integrator (Boris method)
+
+**Advantages:**
+- Error $\propto 1/\sqrt{N}$ independent of phase-space dimension
+- Naturally captures **BGK vortices** (nonlinear trapping structures)
+- Lower memory for high-dimensional phase spaces
+- Intuitive physical interpretation
+
+**Disadvantages:**
+- Statistical noise (Monte Carlo error)
+- More particles needed for accuracy than fine grid
+
+---
+
+## Results
+
+### Weibel Instability — 1D2V Semi-Lagrangian
+
+**Setup:** Bi-Maxwellian with temperature anisotropy ($T_y > T_x$) seeded with transverse magnetic field.
+
+**Physics:** Anisotropic velocity distribution drives exponential growth of $B_z$ via gyro-resonance.
+
+<p align="center">
+<img src="figures/weibel_campos.png" width="90%">
+<br>
+<em>Left: Transverse magnetic field $\max|B_z(t)|$ grows exponentially with rate $\gamma_{\rm sim}$, 
+compared to theoretical prediction (red dashed). 
+Right: Longitudinal electric field $E_x$ grows secondarily via nonlinear coupling.</em>
+</p>
+
+<p align="center">
+<img src="figures/weibel_fpx.png" width="90%">
+<br>
+<em>Marginal distribution $\Delta f(x,p_x)$ showing spatial modulation at wavelength $2\pi/k_0$. 
+The divergent colormap highlights instability-driven structure.</em>
+</p>
+
+<p align="center">
+<img src="figures/weibel_fpy.png" width="90%">
+<br>
+<em>Marginal distribution $\Delta f(x,p_y)$ demonstrates anisotropy: 
+the temperature-driving direction $(p_y)$ shows stronger modulation than $(p_x)$.</em>
+</p>
+
+**Key observation:** Electromagnetic mode structure emerges from initial seed, saturating via particle trapping.
+
+---
+
+### Two-Stream Instability — 1D1V PIC Monte Carlo
+
+**Setup:** Two counter-propagating Maxwellian beams ($v_0 = \pm 2$) with small spatial density perturbation.
+
+**Physics:** Symmetric counterstreaming drives exponential growth of longitudinal electric field.
+
+<p align="center">
+<img src="figures/twostream_campos.png" width="90%">
+<br>
+<em>Left: Electric field $\max|E(t)|$ grows exponentially with rate from PIC simulation (blue) 
+fitted against theoretical two-stream dispersion relation (red dashed). 
+Right: Electrostatic energy $\tfrac{1}{2}\int E^2 dx$ accumulates during linear phase, 
+then plateaus at saturation.</em>
+</p>
+
+<p align="center">
+<img src="figures/twostream_fase.png" width="90%">
+<br>
+<em>Phase space $(x,v)$ at $t=10,20,30,40$ shows formation of characteristic 
+<strong>BGK vortices</strong> (closed orbits in $(x,v)$ plane). 
+These represent nonlinear trapping: particles become trapped in potential wells of the 
+self-consistent electric field.</em>
+</p>
+
+**Key observation:** PIC captures the transition from exponential growth (linear regime) 
+to vortex saturation (nonlinear phase) without grid refinement in velocity space.
+
+---
+
+## Report
+
+The full academic report is available in two languages:
+
+| File | Description |
+|------|-------------|
+| [MemoryEN.pdf](MemoryEN.pdf) | English version — theory, numerics, convergence analysis, results |
+| [MemoriaES.pdf](MemoriaES.pdf) | Spanish version (original) — complete derivations and discussion |
+
+The LaTeX sources, bibliography, and figures are in the [`latex/`](latex/) folder.
+
+---
 
 ## Repository Structure
 
 ```
 .
-├── MemoriaES.pdf              # Full thesis (Spanish)
-├── MemoryEN.pdf               # Full thesis (English)
-├── README.md                  # This file
-├── LICENSE                    # MIT License
-├── .gitignore                 # Git ignore rules
-├── 1D1V.py                    # Grid-based Vlasov--Poisson solver (1D1V)
-├── 1D2V.py                    # Semi-Lagrangian Weibel instability solver (1D2V)
-├── 1D1V_PIC.py                # Particle-in-Cell two-stream solver (Monte Carlo)
-├── *.png                      # Generated figures (phase space, field evolution)
-└── REDACCION/                 # LaTeX source
-    ├── memroria.tex           # Spanish thesis source
-    ├── memoria_en.tex         # English thesis source
-    ├── bibliografia.bib       # BibTeX references
-    └── *.png                  # Figure files
+├── scripts/
+│   ├── 1D1V.py              # Semi-Lagrangian Vlasov-Poisson (electrostatic two-stream)
+│   ├── 1D2V.py              # Semi-Lagrangian 1D2V (electromagnetic Weibel instability)
+│   ├── 1D1V_PIC.py          # Particle-in-Cell Monte Carlo (two-stream)
+│   └── translate_memoria.py # Translation utility (Spanish → English)
+├── figures/                 # Output figures
+│   ├── weibel_campos.png    # Weibel: field evolution
+│   ├── weibel_fpx.png       # Weibel: marginal f(x,px)
+│   ├── weibel_fpy.png       # Weibel: marginal f(x,py)
+│   ├── twostream_campos.png # PIC: field evolution
+│   └── twostream_fase.png   # PIC: phase space
+├── latex/
+│   ├── memroria.tex         # Spanish thesis (source)
+│   ├── memoria_en.tex       # English thesis (source)
+│   ├── memoria_en.pdf       # English thesis (compiled)
+│   ├── memroria.pdf         # Spanish thesis (compiled)
+│   ├── bibliografia.bib     # Bibliography
+│   ├── escudoUGRmonocromo.png # UGR logo
+│   └── *.png                # Thesis figures
+├── MemoryEN.pdf             # English thesis (copy in root)
+├── MemoriaES.pdf            # Spanish thesis (copy in root)
+├── README.md                # This file
+├── LICENSE                  # MIT License
+└── .gitignore               # Git configuration
 ```
-
-## Scripts
-
-### 1D1V.py – Grid-Based Two-Stream Instability
-Semi-Lagrangian solver for the electrostatic Vlasov--Poisson system on a fixed mesh.
-
-**Features:**
-- Two counter-propagating Maxwellian beams
-- CFL-free time integration (no CFL restriction)
-- Cubic interpolation in phase space
-- FFT-based Poisson solver
-- Diagnostics: max|E|(t), phase-space vortex formation
-
-**Output:**
-- `doshaces.png` – Phase space evolution at t=0, 15, 20, 30
-
-### 1D2V.py – Weibel Instability (Electromagnetic)
-Semi-Lagrangian solver for 1D2V quasi-relativistic Vlasov--Maxwell with anisotropic temperature.
-
-**Features:**
-- Bi-Maxwellian anisotropic distribution (Ty > Tx)
-- Electromagnetic seed triggering exponential B-field growth
-- Strang-symmetric splitting with Störmer--Verlet EM update
-- Cubic Catmull--Rom interpolation
-- Automatic linear growth rate extraction
-
-**Output:**
-- `weibel_campos.png` – max|Bz|(t) and max|Ex|(t) with growth-rate fit
-- `weibel_fpx.png` – Marginal f(x,px) showing filamentation
-- `weibel_fpy.png` – Marginal f(x,py) showing anisotropy-driven mode
-
-### 1D1V_PIC.py – Particle-in-Cell Monte Carlo
-Stochastic particle-based solver using macroparticles and fixed grid for fields.
-
-**Features:**
-- N = 200,000 macroparticles (two-stream counterbeam setup)
-- Cloud-in-Cell (CIC) charge deposition
-- FFT Poisson solver for E-field
-- Leapfrog particle push (Boris initialization)
-- BGK vortex detection in phase space
-
-**Output:**
-- `twostream_campos.png` – max|E|(t) with exponential fit vs. two-stream theory
-- `twostream_fase.png` – Phase space (x,v) showing BGK vortex formation
-
-## Numerical Methods
-
-### Semi-Lagrangian Scheme (Grid-Based)
-
-The solver follows characteristics backward in time via **Strang splitting**:
-
-1. Half-step advection in velocity (momentum)
-2. Full-step advection in space
-3. Half-step advection in velocity
-
-Advantages:
-- Unconditionally stable (no CFL restriction)
-- Second-order accuracy in time
-- Preserves compact support of distribution
-
-### Particle-in-Cell (Monte Carlo)
-
-The PIC method represents f as a weighted sum of macroparticles:
-
-$$f(t,x,v) \approx \sum_p w_p \, \delta(x - x_p(t)) \, \delta(v - v_p(t))$$
-
-Advantages:
-- Error scales as O(1/√N), independent of phase-space dimension
-- Naturally captures BGK vortices and filamentation
-- Lower memory footprint than fixed grids for high-dimensional phase spaces
-
-## Physical Models
-
-### Two-Stream Instability (1D1V Vlasov--Poisson)
-
-**Setup:**
-- Two counter-propagating beams: v₀ = ±2, vT = 0.3
-- Spatial seed: density modulation 1 + 0.05·cos(0.5x)
-- Unstable for kv₀ < √2
-
-**Observables:**
-- Exponential growth of E-field (phase linear regime)
-- BGK vortex trapping and saturation (nonlinear phase)
-- Self-consistent filamentation in (x,v) phase space
-
-### Weibel Instability (1D2V Vlasov--Maxwell)
-
-**Setup:**
-- Bi-Maxwellian: Tx=1, Ty=4 (anisotropic)
-- Electromagnetic seed: Ay(x,0) = 10⁻² cos(0.5x)
-- Grid: Nx=128, Np_x=Np_y=64; Δt=0.02; T_max=50
-
-**Observables:**
-- Exponential growth of transverse B-field
-- Oscillating longitudinal E-field
-- Filamentation in (x, py) due to magnetic deflection
-
-## Compilation & Execution
-
-### Requirements
-
-```bash
-pip install numpy matplotlib numba tqdm
-```
-
-### Run Simulations
-
-```bash
-# 1D1V grid-based (electrostatic)
-python 1D1V.py
-
-# 1D2V semi-Lagrangian (electromagnetic Weibel)
-python 1D2V.py
-
-# 1D1V PIC Monte Carlo
-python 1D1V_PIC.py
-```
-
-Each script generates PNG diagnostics automatically.
-
-### Compile Thesis
-
-```bash
-cd REDACCION
-pdflatex memroria.tex           # Spanish
-pdflatex memoria_en.tex          # English
-bibtex memroria                  # Bibliography
-# Run pdflatex again for references
-```
-
-## Mathematical Framework
-
-### Vlasov Equation (Characteristic Form)
-
-$$\frac{dX}{dt} = v(P), \quad \frac{dP}{dt} = -F(t,X)$$
-
-where for electrons (q=-1):
-- In 1D1V: F = E
-- In 1D2V: F = (E + (py/γ)Bz, U - (px/γ)Bz)
-
-### Convergence Result (Main Theorem)
-
-Under appropriate regularity assumptions, the semi-Lagrangian error satisfies:
-
-$$e_n \le C(\Delta t^2 + \Delta x^2 + \Delta p^2 + \Delta t \cdot \Delta p^2) + C\frac{\Delta x^2 + \Delta p^2}{\Delta t}$$
-
-allowing fine temporal discretization with coarser spatial grids (unlike CFL-restricted finite-difference methods).
-
-## References
-
-Key citations (see `REDACCION/bibliografia.bib`):
-
-- Carrillo, J. A., et al. (2006). Global classical solutions to the Vlasov–Maxwell system with boundary conditions.
-- Bostan, M. (2009). Convergence analysis for a semi-Lagrangian discretization of the Vlasov--Poisson system.
-- Weibel, E. S. (1959). Phys. Rev. Lett. 2(3), 83–84.
-
-## Author
-
-**A. S. Amari**  
-Master's Thesis in Physics and Mathematics  
-Faculty of Sciences, University of Granada  
-Academic Year 2025/2026
-
-Email: [alisalemstd@gmail.com](mailto:alisalemstd@gmail.com)
-
-## License
-
-This project is licensed under the MIT License – see [LICENSE](LICENSE) file.
 
 ---
 
-**Language Versions:**
-- 📘 Spanish: [MemoriaES.pdf](MemoriaES.pdf)
-- 📗 English: [MemoryEN.pdf](MemoryEN.pdf)
+## Requirements
+
+```
+numpy  numba  matplotlib  tqdm
+```
+
+Install via pip:
+
+```bash
+pip install numpy numba matplotlib tqdm
+```
+
+All scripts are tested on Python 3.8+.
+
+---
+
+## Usage
+
+Run scripts from the repository root to ensure relative paths to `figures/` work correctly:
+
+```bash
+# Semi-Lagrangian solvers
+python scripts/1D1V.py       # Two-stream (grid-based)
+python scripts/1D2V.py       # Weibel instability (semi-Lagrangian 1D2V)
+
+# Particle-in-Cell solver
+python scripts/1D1V_PIC.py   # Two-stream (Monte Carlo PIC)
+```
+
+Each script generates PNG figures automatically in `figures/`.
+
+### Key Parameters
+
+**`scripts/1D2V.py` — Weibel Instability**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `Tx` | 1.0 | Temperature parallel to $B$ |
+| `Ty` | 4.0 | Temperature perpendicular to $B$ (anisotropy driver) |
+| `k0` | 0.5 | Wavenumber of EM seed |
+| `eps` | 0.01 | Amplitude of seed $A_y$ |
+| `nx, np_x, np_y` | 128, 64, 64 | Grid resolution |
+| `dt` | 0.02 | Time step |
+| `tmax` | 50 | Simulation duration |
+
+**`scripts/1D1V_PIC.py` — Two-Stream Instability**
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `v0` | 2.0 | Beam velocity ($\pm v_0$) |
+| `vT` | 0.3 | Thermal width |
+| `k0` | 0.5 | Wavenumber of density perturbation |
+| `alpha` | 0.05 | Amplitude of density seed |
+| `N` | 200,000 | Number of macroparticles |
+| `nx` | 128 | Number of spatial grid cells |
+| `dt` | 0.05 | Time step |
+| `tmax` | 40 | Simulation duration |
+
+---
+
+## Physical Insights
+
+### Why Two Methods?
+
+1. **Semi-Lagrangian (Grid):** 
+   - Best for smooth distributions and high accuracy
+   - Deterministic; no statistical noise
+   - Ideal for parameter studies and high-dimensional phase spaces
+
+2. **PIC (Particle):**
+   - Excels at capturing discrete structures (vortices, filaments)
+   - Scales favorably for very high-dimensional problems
+   - Industry standard for realistic plasma simulations
+
+Both methods agree on the linear growth rates and nonlinear saturation,
+validating each approach.
+
+### Connection to Astrophysics
+
+These instabilities occur in:
+- **Collisionless shocks** (solar wind, supernova remnants)
+- **Accretion disk jets** (black holes, active galactic nuclei)
+- **Laser-plasma interactions** (inertial confinement fusion, laboratory astrophysics)
+
+---
+
+## Author
+
+**A. S. Amari**
+
+Developed as the master's thesis project for the **Master's Degree in Physics and Mathematics**,
+Faculty of Sciences, University of Granada, Spain.
+
+Academic Year 2025/2026.
+
+Email: [alisalemstd@gmail.com](mailto:alisalemstd@gmail.com)
+
+---
+
+## License
+
+MIT License — see [LICENSE](LICENSE) file for details.
+
+**Citations:** If you use this code or thesis material, please cite:
+```
+Amari, A. S. (2025). "PDEs of Transport in Kinetic Theory and Fluid Mechanics: 
+Vlasov-Maxwell." Master's Thesis, University of Granada.
+```
