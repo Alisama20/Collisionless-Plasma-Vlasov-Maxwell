@@ -12,7 +12,7 @@ High-order numerical simulation of collisionless plasma dynamics via **semi-Lagr
 The system is governed by the **Vlasov-Maxwell equations**
 
 $$
-\frac{\partial f}{\partial t} + \frac{p}{\gamma}\frac{\partial f}{\partial x} + F(t,x)\frac{\partial f}{\partial p} = 0 \quad \text{(Vlassov equation)
+\frac{\partial f}{\partial t} + \frac{p}{\gamma}\frac{\partial f}{\partial x} + F(t,x)\frac{\partial f}{\partial p} = 0 \quad \text{(Vlassov equation)}
 $$
 
 $$
