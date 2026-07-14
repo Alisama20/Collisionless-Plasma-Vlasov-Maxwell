@@ -42,9 +42,11 @@ env/
 *.log
 *.out
 *.synctex.gz
+*.toc
 memoria_en.log
 memroria.log
 *.dvi
+latex/*.pdf
 
 # Temporary
 *.tmp
